@@ -94,6 +94,7 @@ void GazeboRosTricycleDrive::Load ( physics::ModelPtr _parent, sdf::ElementPtr _
     gazebo_ros_->getParameter<double> ( separation_encoder_wheel_, "encoderWheelSeparation", 0.5 );
     gazebo_ros_->getParameter<double> ( wheel_base_, "wheelBase", 0.5 );
     gazebo_ros_->getParameter<double> ( max_velocity_, "maxVelocity", 0.5 );
+    gazebo_ros_->getParameter<double> ( cmd_timeout_, "cmdTimeout", 0.5 ); //in seconds
 
     gazebo_ros_->getParameterBoolean ( publishWheelTF_, "publishWheelTF", false );
     gazebo_ros_->getParameterBoolean ( publishWheelJointState_, "publishWheelJointState", false );
@@ -207,14 +208,24 @@ void GazeboRosTricycleDrive::UpdateChild()
     if ( odom_source_ == ENCODER ) UpdateOdometryEncoder();
     common::Time current_time = parent->GetWorld()->GetSimTime();
     double seconds_since_last_update = ( current_time - last_actuator_update_ ).Double();
+    double seconds_since_cmd_vel = ( current_time - cmd_.timestamp ).Double();
+
     if ( seconds_since_last_update > update_period_ ) {
 
         publishOdometry ( seconds_since_last_update );
         if ( publishWheelTF_ ) publishWheelTF();
         if ( publishWheelJointState_ ) publishWheelJointState();
 
-        double target_wheel_roation_speed = cmd_.speed / ( diameter_actuated_wheel_ / 2.0 );
-        double target_steering_angle = cmd_.angle;
+        double target_wheel_roation_speed;
+        double target_steering_angle;
+
+        if ( seconds_since_cmd_vel < cmd_timeout_ ) {
+          target_wheel_roation_speed = cmd_.speed / ( diameter_actuated_wheel_ / 2.0 );
+          target_steering_angle = cmd_.angle;
+        } else {
+          target_wheel_roation_speed = 0.0;
+          target_steering_angle = 0.0;
+        }
 
         motorController ( target_wheel_roation_speed, target_steering_angle, seconds_since_last_update );
 
@@ -310,19 +321,20 @@ void GazeboRosTricycleDrive::FiniChild()
 void GazeboRosTricycleDrive::cmdVelCallback ( const geometry_msgs::Twist::ConstPtr& cmd_msg )
 {
     boost::mutex::scoped_lock scoped_lock ( lock );
-     
+    cmd_.timestamp = parent->GetWorld()->GetSimTime();
+
     if (cmd_msg->angular.z == 0) {
       cmd_.speed = cmd_msg->linear.x;
       cmd_.angle = 0;
     }
     else {
-      
-      double radius = cmd_msg->linear.x / cmd_msg->angular.z; 
-      
+
+      double radius = cmd_msg->linear.x / cmd_msg->angular.z;
+
       // turn on the spot
       if (radius == 0)
         radius = 0.00001;
-      
+
       radius = std::copysign(radius, cmd_msg->angular.z);
       cmd_.angle = std::atan(wheel_base_ / radius);
 
@@ -330,13 +342,13 @@ void GazeboRosTricycleDrive::cmdVelCallback ( const geometry_msgs::Twist::ConstP
     	  cmd_.speed = std::copysign(wheel_base_ * cmd_msg->angular.z, cmd_msg->linear.x);
       else
     	  cmd_.speed = cmd_msg->linear.x / std::cos(cmd_.angle);
-   
+
       if (cmd_.speed < 0) {
         cmd_.angle = -cmd_.angle;
       }
-      
+
     }
-  
+
 }
 
 void GazeboRosTricycleDrive::QueueThread()

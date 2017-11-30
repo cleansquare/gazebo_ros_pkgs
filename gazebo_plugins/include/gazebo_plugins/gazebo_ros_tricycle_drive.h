@@ -77,6 +77,7 @@ class GazeboRosTricycleDrive : public ModelPlugin {
         TricycleDriveCmd():speed(0), angle(0) {};
         double speed;
         double angle;
+        common::Time timestamp;
     };
 
     enum OdomSource
@@ -118,6 +119,7 @@ private:
     double steering_speed_;
     double separation_encoder_wheel_;
     double max_velocity_;
+    double cmd_timeout_;
 
     OdomSource odom_source_;
     double wheel_torque_;
@@ -169,4 +171,3 @@ private:
 }
 
 #endif
-
