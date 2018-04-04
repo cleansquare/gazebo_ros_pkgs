@@ -40,6 +40,8 @@
 
 #include <gazebo_plugins/PubQueue.h>
 
+#define GazeboRosLaser GazeboRosGpuLaser
+
 namespace gazebo
 {
   class GazeboRosLaser : public GpuRayPlugin

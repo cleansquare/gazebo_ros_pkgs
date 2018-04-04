@@ -80,7 +80,7 @@ void GazeboRosLaser::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
     dynamic_pointer_cast<sensors::GpuRaySensor>(_parent);
 
   if (!this->parent_ray_sensor_)
-    gzthrow("GazeboRosLaser controller requires a Ray Sensor as its parent");
+    gzthrow("GazeboRosLaser controller requires a GPU Ray Sensor as its parent");
 
   this->robot_namespace_ =  GetRobotNamespace(_parent, _sdf, "Laser");
 
